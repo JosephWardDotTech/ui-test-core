@@ -1,13 +1,12 @@
 from unittest import mock
 from unittest.mock import MagicMock
 import requests
-from hamcrest import assert_that, equal_to, contains, is_
+from hamcrest import assert_that, equal_to, is_
 from selenium.webdriver.common.by import By
 from tests.unit.unit_test_utils import check_mocked_functions_called
 from uitestcore.finder import Finder
 from uitestcore.interrogator import Interrogator
 from uitestcore.page_element import PageElement
-
 
 default_page_element = PageElement(By.ID, "test-id")
 
@@ -16,7 +15,7 @@ class MockDriver(object):
 
     @staticmethod
     def get_cookies():
-        mock_cookies = [{"name": "nhsuk-cookie-consent", "value": "%7B%22preferences%22%3Atrue%7D"},
+        mock_cookies = [{"name": "cookie-consent", "value": "%7B%22preferences%22%3Atrue%7D"},
                         {"name": "s_getNewRepeat", "value": "1564127000350-Repeat"}]
         return mock_cookies
 
@@ -77,7 +76,7 @@ class MockWaiter(object):
 def test_table_is_not_empty(mock_get_table_row_count):
     mock_finder = MagicMock()
     mock_finder.element.return_value = ["element_1", "element_2", "element_3", "element_4", "element_5"]
-    interrogate = Interrogator(None, MagicMock(name="logger"), mock_finder)
+    interrogate = Interrogator(None, mock_finder, MagicMock(name="logger"))
 
     result = interrogate.table_is_not_empty(default_page_element)
 
@@ -88,7 +87,7 @@ def test_table_is_not_empty(mock_get_table_row_count):
 def test_table_is_not_empty_handles_table_body_not_found():
     mock_finder = MagicMock()
     mock_finder.element.return_value = None
-    interrogate = Interrogator(None, MagicMock(name="logger"), mock_finder)
+    interrogate = Interrogator(None, mock_finder, MagicMock(name="logger"))
 
     result = interrogate.table_is_not_empty(default_page_element)
 
@@ -99,7 +98,7 @@ def test_table_is_not_empty_handles_table_body_not_found():
 def test_table_is_not_empty_handles_row_count_below_min_length(mock_get_table_row_count):
     mock_finder = MagicMock()
     mock_finder.element.return_value = ["element_1", "element_2", "element_3"]
-    interrogate = Interrogator(None, MagicMock(name="logger"), mock_finder)
+    interrogate = Interrogator(None, mock_finder, MagicMock(name="logger"))
 
     result = interrogate.table_is_not_empty(default_page_element)
 
@@ -114,7 +113,7 @@ def test_list_is_not_empty():
     mock_element.find_elements_by_tag_name.return_value = ["element_1", "element_2"]
     mock_finder.element.return_value = mock_element
 
-    interrogate = Interrogator(None, MagicMock(name="logger"), mock_finder)
+    interrogate = Interrogator(None, mock_finder, MagicMock(name="logger"))
 
     result = interrogate.list_is_not_empty(default_page_element)
 
@@ -129,7 +128,7 @@ def test_list_is_not_empty_min_value():
     mock_element.find_elements_by_tag_name.return_value = ["element_1"]
     mock_finder.element.return_value = mock_element
 
-    interrogate = Interrogator(None, MagicMock(name="logger"), mock_finder)
+    interrogate = Interrogator(None, mock_finder, MagicMock(name="logger"))
 
     result = interrogate.list_is_not_empty(default_page_element)
 
@@ -144,7 +143,7 @@ def test_list_is_not_empty_with_empty_list():
     mock_element.find_elements_by_tag_name.return_value = []
     mock_finder.element.return_value = mock_element
 
-    interrogate = Interrogator(None, MagicMock(name="logger"), mock_finder)
+    interrogate = Interrogator(None, mock_finder, MagicMock(name="logger"))
 
     result = interrogate.list_is_not_empty(default_page_element)
 
@@ -213,7 +212,7 @@ def test_is_image_visible_by_javascript():
     mock_finder.element.return_value = mock_element
     mock_driver = MagicMock()
     mock_driver.execute_script.return_value = "result of execute_script"
-    interrogate = Interrogator(mock_driver, None, mock_finder)
+    interrogate = Interrogator(mock_driver, mock_finder, None)
 
     result = interrogate.is_image_visible_by_javascript(default_page_element)
 
@@ -230,7 +229,7 @@ def test_is_image_visible_by_javascript_svg_no_src():
     mock_element.is_displayed.return_value = "result of is_displayed"
     mock_finder = MagicMock()
     mock_finder.element.return_value = mock_element
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_image_visible_by_javascript(default_page_element)
     mock_element.is_displayed.assert_called_once()
@@ -238,25 +237,31 @@ def test_is_image_visible_by_javascript_svg_no_src():
 
 
 def test_is_element_visible():
+    mock_driver = MagicMock()
     elements = [
         MockElement("true")
     ]
     finder = MockFinder(list_of_elements_to_return=elements)
-    test_interrogator = Interrogator("", "logger", finder)
+    wait_time = 10
+    test_interrogator = Interrogator(mock_driver, finder, wait_time, "logger")
 
     test_interrogator.is_element_visible(PageElement(By.ID, "some_id"))
+    assert_that(mock_driver.implicitly_wait.call_count, equal_to(2), "Expected two calls to implicitly_wait")
     assert_that(elements[0].is_displayed_called, is_(1), "is_displayed was not called the expected amount of times")
 
 
 def test_is_element_visible_with_wait():
+    mock_driver = MagicMock()
     elements = [
         MockElement("true")
     ]
     finder = MockFinder(list_of_elements_to_return=elements)
-    test_interrogator = Interrogator("", "logger", finder)
+    wait_time = 10
+    test_interrogator = Interrogator(mock_driver, finder, wait_time, "logger")
     wait = MockWaiter()
 
     test_interrogator.is_element_visible(PageElement(By.ID, "some_id"), wait)
+    assert_that(mock_driver.implicitly_wait.call_count, equal_to(0), "Expected zero calls to implicitly_wait")
     assert_that(wait.for_element_to_be_visible_called, is_(1),
                 "for_element_to_be_visible was not called the expected amount of times")
     assert_that(elements[0].is_displayed_called, is_(1), "is_displayed was not called the expected amount of times")
@@ -265,7 +270,7 @@ def test_is_element_visible_with_wait():
 def test_are_elements_visible_none_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.are_elements_visible(default_page_element)
 
@@ -276,7 +281,7 @@ def test_are_elements_visible_all_displayed():
     elements = [MockElement(True, False), MockElement(True, False), MockElement(True, False)]
     mock_finder = MagicMock()
     mock_finder.elements.return_value = elements
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.are_elements_visible(default_page_element)
 
@@ -287,7 +292,7 @@ def test_are_elements_visible_one_not_displayed():
     elements = [MockElement(True, False), MockElement(True, False), MockElement(False, False)]
     mock_finder = MagicMock()
     mock_finder.elements.return_value = elements
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.are_elements_visible(default_page_element)
 
@@ -298,7 +303,7 @@ def test_are_elements_visible_one_aria_hidden():
     elements = [MockElement(True, False), MockElement(True, False), MockElement(True, True)]
     mock_finder = MagicMock()
     mock_finder.elements.return_value = elements
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.are_elements_visible(default_page_element)
 
@@ -332,7 +337,7 @@ def test_is_checkbox_selected():
     mock_element.is_selected.return_value = "result of is_selected"
     mock_finder = MagicMock()
     mock_finder.element.return_value = mock_element
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_checkbox_selected(default_page_element)
 
@@ -342,7 +347,7 @@ def test_is_checkbox_selected():
 def test_is_element_or_parent_visible_element_visible():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_or_parent_visible(default_page_element)
 
@@ -352,7 +357,7 @@ def test_is_element_or_parent_visible_element_visible():
 def test_is_element_or_parent_visible_element_not_visible():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(False, False, False)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_or_parent_visible(default_page_element)
 
@@ -362,7 +367,7 @@ def test_is_element_or_parent_visible_element_not_visible():
 def test_is_element_or_parent_visible_parent_visible():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(False, False, True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_or_parent_visible(default_page_element)
 
@@ -372,7 +377,7 @@ def test_is_element_or_parent_visible_parent_visible():
 def test_is_element_or_parent_visible_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_or_parent_visible(default_page_element)
 
@@ -384,7 +389,7 @@ def test_is_element_selected():
     mock_element.is_selected.return_value = True
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_selected(default_page_element)
 
@@ -394,7 +399,7 @@ def test_is_element_selected():
 def test_is_element_selected_no_element_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_selected(default_page_element)
 
@@ -406,7 +411,7 @@ def test_is_element_selected_element_not_selected():
     mock_element.is_selected.return_value = False
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_selected(default_page_element)
 
@@ -418,7 +423,7 @@ def test_is_element_enabled():
     mock_element.is_enabled.return_value = True
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_enabled(default_page_element)
 
@@ -428,7 +433,7 @@ def test_is_element_enabled():
 def test_is_element_enabled_no_element_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_enabled(default_page_element)
 
@@ -440,7 +445,7 @@ def test_is_element_enabled_element_not_enabled():
     mock_element.is_enabled.return_value = False
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_enabled(default_page_element)
 
@@ -454,7 +459,7 @@ def test_is_element_visible_and_contains_text():
     mock_element_2.text = "abcd"
     mock_finder = MagicMock()
     mock_finder.visible_elements.return_value = [mock_element_1, mock_element_2]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_visible_and_contains_text(default_page_element, "abcd")
 
@@ -464,7 +469,7 @@ def test_is_element_visible_and_contains_text():
 def test_is_element_visible_and_contains_text_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.visible_elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_visible_and_contains_text(default_page_element, "test-text")
 
@@ -478,7 +483,7 @@ def test_is_element_visible_and_contains_text_expected_text_not_found():
     mock_element_2.text = "abcd"
     mock_finder = MagicMock()
     mock_finder.visible_elements.return_value = [mock_element_1, mock_element_2]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.is_element_visible_and_contains_text(default_page_element, "test-text")
 
@@ -488,7 +493,7 @@ def test_is_element_visible_and_contains_text_expected_text_not_found():
 def test_get_number_of_elements():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = ["element_1", "element_2", "element_3"]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_number_of_elements(default_page_element)
 
@@ -502,7 +507,7 @@ def test_get_number_of_elements_with_background_url():
     mock_element_2.value_of_css_property.return_value = "test-url"
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element_1, mock_element_2]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_number_of_elements_with_background_url(default_page_element)
 
@@ -512,7 +517,7 @@ def test_get_number_of_elements_with_background_url():
 def test_get_number_of_elements_with_background_url_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_number_of_elements_with_background_url(default_page_element)
 
@@ -526,7 +531,7 @@ def test_get_number_of_elements_with_background_url_no_backgrounds():
     mock_element_2.value_of_css_property.return_value = "abcd"
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element_1, mock_element_2]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_number_of_elements_with_background_url(default_page_element)
 
@@ -548,7 +553,7 @@ def test_get_table_row_count():
     mock_element.find_elements_by_tag_name.return_value = ["element_1", "element_2"]
     mock_finder = MagicMock()
     mock_finder.element.return_value = mock_element
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_table_row_count(default_page_element)
 
@@ -561,7 +566,7 @@ def test_get_attribute():
     mock_element.get_attribute.return_value = "test_attr_val"
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_attribute(default_page_element, "test_attr")
 
@@ -571,7 +576,7 @@ def test_get_attribute():
 def test_get_attribute_no_element_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_attribute(default_page_element, "test_attr")
 
@@ -583,7 +588,7 @@ def test_get_text():
     mock_element.text = "text_content"
     mock_finder = MagicMock()
     mock_finder.element.return_value = mock_element
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.get_text(default_page_element)
 
@@ -596,7 +601,7 @@ def test_element_has_class():
     mock_element.get_attribute.return_value = "class1 class2 test_class"
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_has_class(default_page_element, "test_class")
 
@@ -606,7 +611,7 @@ def test_element_has_class():
 def test_element_has_class_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_has_class(default_page_element, "test_class")
 
@@ -619,7 +624,7 @@ def test_element_has_class_incorrect_class():
     mock_element.get_attribute.return_value = "class1 class2"
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [mock_element]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_has_class(default_page_element, "test_class")
 
@@ -629,7 +634,7 @@ def test_element_has_class_incorrect_class():
 def test_element_parent_has_class():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True, False, True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_parent_has_class(default_page_element, "test_class")
 
@@ -639,7 +644,7 @@ def test_element_parent_has_class():
 def test_element_parent_has_class_incorrect_class():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True, False, True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_parent_has_class(default_page_element, "test_class_2")
 
@@ -649,7 +654,7 @@ def test_element_parent_has_class_incorrect_class():
 def test_element_parent_has_class_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_parent_has_class(default_page_element, "test_class")
 
@@ -659,7 +664,7 @@ def test_element_parent_has_class_no_elements_found():
 def test_element_sibling_has_class():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_sibling_has_class(default_page_element, "test_class")
 
@@ -669,7 +674,7 @@ def test_element_sibling_has_class():
 def test_element_sibling_has_class_incorrect_class():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_sibling_has_class(default_page_element, "test_class_2")
 
@@ -679,7 +684,7 @@ def test_element_sibling_has_class_incorrect_class():
 def test_element_sibling_has_class_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_sibling_has_class(default_page_element, "test_class")
 
@@ -689,7 +694,7 @@ def test_element_sibling_has_class_no_elements_found():
 def test_element_contains_link():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_contains_link(default_page_element, "test_url")
 
@@ -699,7 +704,7 @@ def test_element_contains_link():
 def test_element_contains_link_incorrect_link():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = [MockElement(True)]
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_contains_link(default_page_element, "test_url_2")
 
@@ -709,7 +714,7 @@ def test_element_contains_link_incorrect_link():
 def test_element_contains_link_no_elements_found():
     mock_finder = MagicMock()
     mock_finder.elements.return_value = []
-    interrogate = Interrogator(None, None, mock_finder)
+    interrogate = Interrogator(None, mock_finder, None)
 
     result = interrogate.element_contains_link(default_page_element, "test_url")
 
@@ -718,7 +723,7 @@ def test_element_contains_link_no_elements_found():
 
 def test_get_value_from_cookie_with_empty_string():
     finder = Finder("driver", "logger")
-    test_interrogator = Interrogator(MockDriver(), "logger", finder)
+    test_interrogator = Interrogator(MockDriver(), finder, "logger")
     name = ""
     result = test_interrogator.get_value_from_cookie(name)
     assert_that(result, equal_to(""), f"Incorrect cookie value when searching for name: '{name}'")
@@ -726,7 +731,7 @@ def test_get_value_from_cookie_with_empty_string():
 
 def test_get_value_from_cookie_with_none_value():
     finder = Finder("driver", "logger")
-    test_interrogator = Interrogator(MockDriver(), "logger", finder)
+    test_interrogator = Interrogator(MockDriver(), finder, "logger")
     name = None
     result = test_interrogator.get_value_from_cookie(name)
     assert_that(result, equal_to(""), f"Incorrect cookie value when searching for name: '{name}'")
@@ -734,8 +739,8 @@ def test_get_value_from_cookie_with_none_value():
 
 def test_get_value_from_cookie_with_correct_value():
     finder = Finder("driver", "logger")
-    test_interrogator = Interrogator(MockDriver(), "logger", finder)
-    name = "nhsuk-cookie-consent"
+    test_interrogator = Interrogator(MockDriver(), finder, "logger")
+    name = "cookie-consent"
     result = test_interrogator.get_value_from_cookie(name)
     assert_that(result, equal_to("%7B%22preferences%22%3Atrue%7D"),
                 f"Incorrect cookie value when searching for name: '{name}'")
@@ -743,7 +748,19 @@ def test_get_value_from_cookie_with_correct_value():
 
 def test_get_value_from_cookie_with_wrong_key_value():
     finder = Finder("driver", "logger")
-    test_interrogator = Interrogator(MockDriver(), "logger", finder)
-    name = "nhsuk-consent"
+    test_interrogator = Interrogator(MockDriver(), finder, "logger")
+    name = "consent"
     result = test_interrogator.get_value_from_cookie(name)
     assert_that(result, equal_to(""), f"Incorrect cookie value when searching for name: '{name}'")
+
+
+def test_get_all_cookies():
+    driver = MagicMock()
+    driver.get_cookies.return_value = "test_cookie"
+
+    interrogate = Interrogator(driver, None, None)
+
+    cookies = interrogate.get_all_cookies()
+
+    driver.get_cookies.assert_called_once()
+    assert_that(cookies, equal_to("test_cookie"), "Cookies not returned correctly")

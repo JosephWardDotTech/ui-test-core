@@ -31,11 +31,11 @@ def test_generate_random_string_increased_length():
 
 
 def test_remove_invalid_characters():
-    test_input_string = "test, 'string'\n"
+    test_input_string = "https://test, 'string'\n"
 
     result = remove_invalid_characters(test_input_string)
 
-    assert_that(result, equal_to("test_string"), "All invalid characters should be removed")
+    assert_that(result, equal_to("https__test_string"), "All invalid characters should be removed")
 
 
 def test_remove_invalid_characters_does_not_change_valid_string():
@@ -55,7 +55,7 @@ def test_decode_url_string_with_empty_input():
 def test_decode_url_string_with_none_input():
     none_url_string = None
     assert_that(calling(decode_url_string).with_args(none_url_string), raises(TypeError),
-                "A JSONDecodeError should occur with a None value ")
+                "A JSONDecodeError should occur with a None value")
 
 
 def test_decode_url_string_with_invalid_input():

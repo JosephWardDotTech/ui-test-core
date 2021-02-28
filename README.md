@@ -1,6 +1,7 @@
 # UiTestCore
 
-This package helps with writing UI tests by providing a wrapper around Selenium and other useful functions. UiTestCore was designed with Page Object Model in mind, and makes it easy to create an acceptance test pack without the need to write any Selenium code.
+This package helps with writing UI tests by providing a wrapper around Selenium and other useful functions. UiTestCore was designed with Page Object Model in mind, and makes it easy to create an acceptance test pack without the need to write any Selenium code.<br><br>
+The repository for this project can be found on GitHub: https://github.com/nhsuk/ui-test-core
 
 ### Example
 
@@ -39,6 +40,13 @@ class MyLoginPage(BasePage):
 
 The "BasePage" class is provided so that any page classes in the test pack can inherit from it, giving access to many useful functions which are separated into "find", "interrogate", "interact" and "wait". The "PageElement" class is used to define any elements which your tests need to interact with, so they can be reused without needing to remember whether you're looking for a class, ID etc (all Selenium selector types are supported).<br><br>
 The above page class could then be used in the test steps to perform any required actions and assertions.
+You must supply a [selenium.webdriver](https://selenium-python.readthedocs.io/api.html) driver object when instantiating the page
+
+
+```python
+    login_page = MyLoginPage(driver)
+    login_page.open_login_page()
+```
 
 ### Installation
 This package is located on PyPI: https://pypi.org/project/uitestcore/ - it can be installed in the usual way i.e. `pip install uitestcore`
@@ -47,6 +55,9 @@ The easiest way to include this package in your project is by adding it to your 
 Here is an example of the line which should be added to this file, we recommend using a specific version but it's your call: 
 
 `uitestcore==3.3.0`
+
+### Deployment to PyPI
+PyPI deployment is configured in the release pipeline of the NHS.UK Azure Devops project. Any changes merged into master will be automatically deployed to PyPI, and any changes pushed to a branch starting with "test/" will be automatically deployed to TestPyPI.
 
 
 ### License

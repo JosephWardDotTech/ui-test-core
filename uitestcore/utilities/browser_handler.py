@@ -4,7 +4,6 @@ import shutil
 from selenium import webdriver
 from uitestcore.utilities.config_handler import parse_config_data
 from uitestcore.utilities.datetime_handler import get_current_datetime
-from uitestcore.utilities.logger import Logger
 from uitestcore.utilities.string_util import remove_invalid_characters
 
 SCREENSHOTS_PATH = "screenshots"
@@ -30,7 +29,6 @@ class BrowserHandler:
         Set up the browser based on the config options
         :param context: the test context instance
         """
-
         # Check if we have any command line parameters to parse
         parse_config_data(context)
 
@@ -43,19 +41,13 @@ class BrowserHandler:
         # Check if Maximize Browser Flag has been activated
         BrowserHandler.set_browser_size(context)
 
-        # If the logging flag is false, disable the logger
-        if not context.logging_flag:
-            context.logger.disabled = True
-        else:
-            # Create the file to write logs to
-            context.logger = Logger.create_log_file()
-
     @staticmethod
     def take_screenshot(driver, description):
         """
         Save a screenshot of the browser window - should be used after a test fails
         :param driver: the browser driver
         :param description: information about the screenshot to be added to the file name
+        :return: boolean representing whether saving the screenshot succeeded
         """
         window_width = driver.get_window_size()["width"]
         window_height = driver.get_window_size()["height"]
@@ -71,16 +63,18 @@ class BrowserHandler:
 
         # Create a file name and ensure it is not too long
         timestamp = get_current_datetime().strftime("%Y-%m-%d_%H.%M.%S.%f")
+        description = remove_invalid_characters(description)
         file_name = f"{SCREENSHOTS_PATH}/{timestamp}_{description}"
-        file_name = remove_invalid_characters(file_name)
         file_name = (file_name[:100] + "---.png") if len(file_name) > 100 else file_name + ".png"
 
         # Save the screenshot
-        driver.save_screenshot(file_name)
+        result = driver.save_screenshot(file_name)
 
         # Reset the browser size if it was changed
         if scroll_height > window_height:
             driver.set_window_size(window_width, window_height)
+
+        return result
 
     @staticmethod
     def move_screenshots_to_folder(folder_name):
@@ -106,11 +100,17 @@ def open_browser(context):
     Open the required browser
     :param context: the test context instance
     """
-    if context.browser.lower() == "chrome":
+    if context.browser_name.lower() == "chrome":
         open_chrome(context)
 
-    elif context.browser.lower() == "browserstack":
+    elif context.browser_name.lower() == "firefox":
+        open_firefox(context)
+
+    elif context.browser_name.lower() == "browserstack":
         start_browserstack(context)
+
+    else:
+        raise ValueError(f"Browser '{context.browser_name}' not supported")
 
 
 def open_chrome(context):
@@ -127,8 +127,27 @@ def open_chrome(context):
         chrome_options.add_argument("--window-size=1420,1080")
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
-        # no need to specify the executable as we're using one installed via pip in Dockerfile
+
+        # No need to specify the executable as we're using one installed via pip in Dockerfile
         context.browser = webdriver.Chrome(chrome_options=chrome_options)
+
+    BrowserHandler.set_browser_size(context)
+
+
+def open_firefox(context):
+    """
+    Open the Firefox browser
+    :param context: the test context instance
+    """
+    if os.name == 'nt':
+        context.browser = webdriver.Firefox(executable_path=r"browser_executables/geckodriver.exe")
+
+    else:
+        firefox_options = webdriver.FirefoxOptions()
+        firefox_options.add_argument("--headless")
+
+        # The Firefox driver (geckodriver) must be located in the "firefox" folder when running in Docker
+        context.browser = webdriver.Firefox(executable_path=r"firefox/geckodriver", firefox_options=firefox_options)
 
     BrowserHandler.set_browser_size(context)
 
